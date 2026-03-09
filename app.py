@@ -1,261 +1,120 @@
+# app.py
 import streamlit as st
 import yfinance as yf
 import pandas as pd
-import numpy as np
-import requests
-from textblob import TextBlob
-import plotly.graph_objects as go
 import plotly.express as px
-from sklearn.linear_model import LinearRegression
+from textblob import TextBlob
+import requests
 
-# -------------------------------------------------
+# -------------------------
 # PAGE CONFIG
-# -------------------------------------------------
-
+# -------------------------
 st.set_page_config(
     page_title="Crypto Command",
     page_icon="logo.png",
     layout="wide"
 )
 
-# -------------------------------------------------
-# BLACK + GOLD THEME
-# -------------------------------------------------
+# -------------------------
+# CUSTOM CSS
+# -------------------------
+st.markdown(
+    """
+    <style>
+    .css-18e3th9 {background-color: black; color: gold;}
+    .st-bb {background-color: black; color: gold;}
+    .stApp {background-color: black; color: gold;}
+    .stButton>button {background-color: gold; color: black;}
+    </style>
+    """, unsafe_allow_html=True
+)
 
-st.markdown("""
-<style>
-
-.stApp {
-    background-color: #000000;
-    color: gold;
-}
-
-h1, h2, h3 {
-    color: gold;
-}
-
-[data-testid="stSidebar"] {
-    background-color: #111111;
-}
-
-</style>
-""", unsafe_allow_html=True)
-
-# -------------------------------------------------
-# LOGO + TITLE
-# -------------------------------------------------
-
-st.image("logo.png", width=300)
+# -------------------------
+# LOGO
+# -------------------------
+st.image("logo.png", width=250)
 
 st.title("Crypto Command")
+st.markdown("**Predict, simulate, and manage your crypto portfolio with intelligence.**")
 
-st.write("AI-Powered Crypto Intelligence Dashboard")
-
-# -------------------------------------------------
-# HISTORICAL PRICE DATA
-# -------------------------------------------------
-
-st.header("Crypto Price Trends")
-
-coins = [
-    "BTC-USD",
-    "ETH-USD",
-    "SOL-USD",
-    "ADA-USD",
-    "XRP-USD"
-]
-
+# -------------------------
+# DATA FETCHING
+# -------------------------
+coins = ["BTC-USD", "ETH-USD"]
 price_frames = []
 
 for coin in coins:
+    data = yf.download(coin, start="2022-01-01", end="2026-03-01", auto_adjust=True, interval='1d')
+    if data.empty:
+        st.warning(f"No data for {coin}")
+    else:
+        df_coin = data[['Close']].rename(columns={'Close': coin})
+        price_frames.append(df_coin)
 
-    data = yf.download(
-        coin,
-        start="2022-01-01",
-        auto_adjust=True,
-        interval="1d"
-    )
-
-    df_coin = data[['Close']].rename(columns={'Close': coin})
-
-    price_frames.append(df_coin)
-
+# Merge all coins on the index (Date)
 df = pd.concat(price_frames, axis=1)
-
 df = df.ffill()
 
-# -------------------------------------------------
-# PRICE CHART
-# -------------------------------------------------
-
-fig = go.Figure()
-
-for coin in coins:
-
-    fig.add_trace(
-        go.Scatter(
-            x=df.index,
-            y=df[coin],
-            mode="lines",
-            name=coin
-        )
-    )
-
-fig.update_layout(
-    title="Historical Crypto Prices",
-    template="plotly_dark"
+# -------------------------
+# HISTORICAL PRICE CHART
+# -------------------------
+st.header("Historical Prices")
+fig_prices = px.line(
+    df,
+    x=df.index,
+    y=df.columns,
+    labels={'value': 'Price (USD)', 'Date': 'Date', 'variable': 'Coin'},
+    title="BTC & ETH Historical Prices"
 )
+st.plotly_chart(fig_prices, use_container_width=True)
 
-st.plotly_chart(fig, use_container_width=True)
-
-# -------------------------------------------------
-# LIVE MARKET DATA
-# -------------------------------------------------
-
-st.header("Live Crypto Market Data")
-
-url = "https://api.coingecko.com/api/v3/coins/markets"
-
-params = {
-    "vs_currency": "usd",
-    "order": "market_cap_desc",
-    "per_page": 50,
-    "page": 1
-}
-
-data = requests.get(url, params=params).json()
-
-market_df = pd.DataFrame(data)[[
-    "name",
-    "symbol",
-    "current_price",
-    "market_cap",
-    "total_volume",
-    "price_change_percentage_24h"
-]]
-
-market_df.columns = [
-    "Coin",
-    "Symbol",
-    "Price",
-    "Market Cap",
-    "Volume",
-    "24h Change %"
-]
-
-st.dataframe(market_df)
-
-# -------------------------------------------------
-# MARKET HEATMAP
-# -------------------------------------------------
-
-st.header("Crypto Market Heatmap")
-
-fig2 = px.treemap(
-    market_df,
-    path=["Coin"],
-    values="Market Cap",
-    color="24h Change %",
-    color_continuous_scale=["red", "black", "gold"]
-)
-
-st.plotly_chart(fig2, use_container_width=True)
-
-# -------------------------------------------------
-# CRYPTO NEWS
-# -------------------------------------------------
-
-st.header("Latest Crypto News")
-
-news_url = "https://cryptopanic.com/api/v1/posts/?auth_token=demo&public=true"
-
-news_data = requests.get(news_url).json()
-
-headlines = []
-
-for post in news_data["results"][:10]:
-
-    headlines.append(post["title"])
-
-news_df = pd.DataFrame(headlines, columns=["Headline"])
-
-# -------------------------------------------------
-# SENTIMENT ANALYSIS
-# -------------------------------------------------
-
-sentiments = [TextBlob(h).sentiment.polarity for h in headlines]
-
-news_df["Sentiment"] = sentiments
-
-st.dataframe(news_df)
-
-# -------------------------------------------------
+# -------------------------
 # PORTFOLIO SIMULATOR
-# -------------------------------------------------
-
+# -------------------------
 st.header("Portfolio Simulator")
+st.write("Simulate how market movements affect your portfolio.")
 
-btc_change = st.slider("BTC % Change", -50, 50, 0)
+col1, col2 = st.columns(2)
+with col1:
+    btc_qty = st.number_input("BTC Holdings", min_value=0.0, value=1.0)
+with col2:
+    eth_qty = st.number_input("ETH Holdings", min_value=0.0, value=5.0)
 
-eth_change = st.slider("ETH % Change", -50, 50, 0)
+col3, col4 = st.columns(2)
+with col3:
+    btc_change = st.slider("BTC % Price Change", -50, 50, 0)
+with col4:
+    eth_change = st.slider("ETH % Price Change", -50, 50, 0)
 
-portfolio = {
-    "BTC-USD": 1,
-    "ETH-USD": 5
-}
-
+portfolio = {"BTC-USD": btc_qty, "ETH-USD": eth_qty}
 new_values = {}
 
 for coin, qty in portfolio.items():
-
     pct = btc_change/100 if coin == "BTC-USD" else eth_change/100
-
     new_values[coin] = qty * df[coin].iloc[-1] * (1 + pct)
 
-total = sum(new_values.values())
-
-st.metric("Simulated Portfolio Value", f"${total:,.2f}")
+total_value = sum(new_values.values())
+st.metric("Simulated Portfolio Value", f"${total_value:,.2f}")
 
 sim_df = pd.DataFrame(list(new_values.items()), columns=["Coin","Value"])
-
-st.bar_chart(sim_df.set_index("Coin"))
-
-# -------------------------------------------------
-# AI PRICE PREDICTION
-# -------------------------------------------------
-
-st.header("AI Price Prediction")
-
-coin_choice = st.selectbox(
-    "Select Coin for Prediction",
-    ["BTC-USD", "ETH-USD", "SOL-USD"]
+fig_sim = px.bar(
+    sim_df,
+    x="Coin",
+    y="Value",
+    color="Coin",
+    title="Simulated Portfolio Allocation"
 )
+st.plotly_chart(fig_sim, use_container_width=True)
 
-coin_df = df[[coin_choice]].dropna()
+# -------------------------
+# NEWS & SENTIMENT PLACEHOLDER
+# -------------------------
+st.header("News & Sentiment")
+st.write("This section will show news sentiment and AI predictions in Phase 2.")
 
-coin_df["day"] = np.arange(len(coin_df))
-
-X = coin_df[["day"]]
-
-y = coin_df[coin_choice]
-
-model = LinearRegression()
-
-model.fit(X, y)
-
-future_days = np.arange(len(coin_df), len(coin_df)+7).reshape(-1,1)
-
-predictions = model.predict(future_days)
-
-pred_df = pd.DataFrame({
-    "Day": range(1,8),
-    "Predicted Price": predictions
-})
-
-st.write("7-Day Forecast")
-
-st.line_chart(pred_df.set_index("Day"))
-
-predicted_price = predictions[-1]
-
-st.metric("Predicted Price in 7 Days", f"${predicted_price:,.2f}")
+# Example: placeholder table
+st.table(pd.DataFrame({
+    "Source": ["CoinDesk", "CryptoNews", "Twitter"],
+    "Headline": ["BTC rallies 5%", "ETH hits new ATH", "Whales accumulating BTC"],
+    "Sentiment": ["Positive", "Positive", "Neutral"]
+}))
