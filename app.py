@@ -162,33 +162,6 @@ fig2 = px.treemap(
 
 st.plotly_chart(fig2, use_container_width=True)
 
-# -----------------------------------
-# CRYPTO NEWS
-# -----------------------------------
-
-st.header("Latest Crypto News")
-
-news_url = "https://cryptopanic.com/api/v1/posts/?auth_token=demo&public=true"
-
-news_data = requests.get(news_url).json()
-
-headlines = []
-
-for post in news_data["results"][:10]:
-
-    headlines.append(post["title"])
-
-news_df = pd.DataFrame(headlines, columns=["Headline"])
-
-# -----------------------------------
-# SENTIMENT ANALYSIS
-# -----------------------------------
-
-sentiments = [TextBlob(h).sentiment.polarity for h in headlines]
-
-news_df["Sentiment"] = sentiments
-
-st.dataframe(news_df)
 
 # -----------------------------------
 # PORTFOLIO SIMULATOR
