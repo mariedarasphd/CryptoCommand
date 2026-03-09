@@ -1,90 +1,146 @@
+# app.py
 import streamlit as st
 import yfinance as yf
 import pandas as pd
+import numpy as np
 from textblob import TextBlob
 import plotly.express as px
-from PIL import Image
+from datetime import datetime, timedelta
 
-# --- Page config ---
+# ----------------------------
+# PAGE CONFIG
+# ----------------------------
 st.set_page_config(
     page_title="Crypto Command",
-    page_icon="logo.png",
-    layout="wide"
+    page_icon=":moneybag:",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# --- Custom black & gold theme ---
-st.markdown("""
+# ----------------------------
+# STYLE
+# ----------------------------
+st.markdown(
+    """
     <style>
-    body { background-color: #000000; color: #FFD700; }
-    .stButton>button { background-color: #FFD700; color: black; font-weight: bold; }
-    .stSlider>div>div>div>div { color: #FFD700; }
-    .stTextInput>div>div>input { background-color: #111111; color: #FFD700; }
-    .stMarkdown { color: #FFD700; }
-    .stHeader, h1, h2, h3 { color: #FFD700; }
+    body {
+        background-color: #000000;
+        color: #FFD700;
+    }
+    .stButton>button {
+        background-color: #FFD700;
+        color: black;
+    }
+    .stSlider>div>div>div>div {
+        color: #FFD700;
+    }
     </style>
-""", unsafe_allow_html=True)
+    """,
+    unsafe_allow_html=True
+)
 
-# --- Logo ---
-logo = Image.open("logo.png")
-st.image(logo, width=250)
+# ----------------------------
+# LOGO
+# ----------------------------
+st.image("logo.png", width=300)
 
-st.title("Crypto Command")
-st.markdown("Dashboard for cryptocurrency insights, sentiment, and simulations.")
+st.title("Crypto Command Dashboard")
 
-# --- Fetch historical price data ---
+# ----------------------------
+# DATA
+# ----------------------------
 coins = ["BTC-USD", "ETH-USD"]
 price_frames = []
 
 for coin in coins:
-    data = yf.download(coin, start="2022-01-01", end="2026-03-01", auto_adjust=True, interval="1d")
+    data = yf.download(coin, start="2022-01-01", end=datetime.today().strftime("%Y-%m-%d"), auto_adjust=True)
     if data.empty:
-        st.warning(f"No data for {coin}")
+        st.warning(f"No data found for {coin}")
     else:
         df_coin = data[['Close']].rename(columns={'Close': coin})
         price_frames.append(df_coin)
 
-df = pd.concat(price_frames, axis=1).ffill()
+df = pd.concat(price_frames, axis=1)
+df = df.ffill()  # fill missing values
 
-# Flatten columns if MultiIndex exists
-if isinstance(df.columns, pd.MultiIndex):
-    df.columns = [col[-1] for col in df.columns]
+# ----------------------------
+# PLOT HISTORICAL PRICES
+# ----------------------------
+df_plot = df.reset_index().melt(id_vars='Date', value_vars=df.columns,
+                                var_name='Coin', value_name='Price')
 
-# --- Melt for Plotly ---
-df_plot = df.reset_index().melt(
-    id_vars='Date',
-    value_vars=df.columns.tolist(),
-    var_name='Coin',
-    value_name='Price'
-)
-
-# --- Historical Prices Plot ---
 fig_prices = px.line(
     df_plot,
     x='Date',
     y='Price',
     color='Coin',
-    labels={'Price':'Price (USD)', 'Date':'Date'},
-    title="BTC & ETH Historical Prices"
+    title="BTC & ETH Historical Prices",
+    labels={'Price': 'Price (USD)', 'Date': 'Date', 'Coin': 'Coin'}
 )
+fig_prices.update_layout(plot_bgcolor='black', paper_bgcolor='black', font_color='gold')
+
 st.plotly_chart(fig_prices, use_container_width=True)
 
-# --- Sentiment Analysis ---
-st.header("Sentiment Analysis")
-user_text = st.text_area("Paste news article or social media text here for sentiment scoring:", "")
-if user_text:
-    blob = TextBlob(user_text)
-    polarity = blob.sentiment.polarity
-    subjectivity = blob.sentiment.subjectivity
-    st.markdown(f"**Polarity:** {polarity:.2f} (negative to positive)")
-    st.markdown(f"**Subjectivity:** {subjectivity:.2f} (objective to subjective)")
-else:
-    st.markdown("Enter text above to perform sentiment analysis.")
+# ----------------------------
+# SENTIMENT ANALYSIS
+# ----------------------------
+st.subheader("Sentiment Analysis Placeholder")
 
-# --- Simulation Placeholder ---
-st.header("Simulation")
-forecast_days = st.slider("Forecast Days", 1, 30, 7)
-st.markdown(f"Simulation for next {forecast_days} days will appear here once streaming data services are enabled.")
+sample_text = st.text_area(
+    "Enter cryptocurrency news text or social media text here to score sentiment:",
+    "Bitcoin is surging and investors are excited..."
+)
 
-# --- Footer ---
-st.markdown("---")
-st.markdown("Crypto Command © 2026 | Black & Gold Theme")
+if sample_text:
+    blob = TextBlob(sample_text)
+    sentiment_score = blob.sentiment.polarity
+    st.write(f"Sentiment score: {sentiment_score:.2f}")
+    if sentiment_score > 0:
+        st.success("Positive sentiment")
+    elif sentiment_score < 0:
+        st.error("Negative sentiment")
+    else:
+        st.info("Neutral sentiment")
+
+# ----------------------------
+# SIMULATION
+# ----------------------------
+st.subheader("Monte Carlo Simulation (Placeholder)")
+
+forecast_days = st.slider("Forecast Days", min_value=1, max_value=30, value=7)
+
+st.info(
+    f"Simulation for next {forecast_days} days will appear here once streaming/live data services are enabled.\n\n"
+    "Currently using simple Monte Carlo simulation based on historical volatility."
+)
+
+simulate_button = st.button("Run Simulation (Sample)")
+
+if simulate_button:
+    # Simple Monte Carlo
+    last_prices = df.iloc[-1]
+    num_simulations = 10
+    simulation_results = pd.DataFrame(index=range(forecast_days))
+
+    for coin in coins:
+        daily_returns = df[coin].pct_change().dropna()
+        mu = daily_returns.mean()
+        sigma = daily_returns.std()
+
+        simulations = []
+        for _ in range(num_simulations):
+            price_series = [last_prices[coin]]
+            for _ in range(forecast_days):
+                price_series.append(price_series[-1] * (1 + np.random.normal(mu, sigma)))
+            simulations.append(price_series[1:])
+        simulation_results[coin] = np.mean(simulations, axis=0)
+
+    # Plot simulation
+    sim_plot = px.line(
+        simulation_results,
+        y=coins,
+        labels={'value': 'Simulated Price (USD)', 'index': 'Forecast Day', 'variable': 'Coin'},
+        title="Monte Carlo Simulation Forecast"
+    )
+    sim_plot.update_layout(plot_bgcolor='black', paper_bgcolor='black', font_color='gold')
+    st.plotly_chart(sim_plot, use_container_width=True)
