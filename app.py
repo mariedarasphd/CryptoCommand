@@ -6,10 +6,11 @@ import requests
 from textblob import TextBlob
 import plotly.graph_objects as go
 import plotly.express as px
+from sklearn.linear_model import LinearRegression
 
-# -----------------------------------
+# -------------------------------------------------
 # PAGE CONFIG
-# -----------------------------------
+# -------------------------------------------------
 
 st.set_page_config(
     page_title="Crypto Command",
@@ -17,9 +18,9 @@ st.set_page_config(
     layout="wide"
 )
 
-# -----------------------------------
-# CUSTOM BLACK + GOLD THEME
-# -----------------------------------
+# -------------------------------------------------
+# BLACK + GOLD THEME
+# -------------------------------------------------
 
 st.markdown("""
 <style>
@@ -40,19 +41,19 @@ h1, h2, h3 {
 </style>
 """, unsafe_allow_html=True)
 
-# -----------------------------------
+# -------------------------------------------------
 # LOGO + TITLE
-# -----------------------------------
+# -------------------------------------------------
 
 st.image("logo.png", width=300)
 
 st.title("Crypto Command")
 
-st.write("AI-powered crypto analytics dashboard")
+st.write("AI-Powered Crypto Intelligence Dashboard")
 
-# -----------------------------------
+# -------------------------------------------------
 # HISTORICAL PRICE DATA
-# -----------------------------------
+# -------------------------------------------------
 
 st.header("Crypto Price Trends")
 
@@ -83,9 +84,9 @@ df = pd.concat(price_frames, axis=1)
 
 df = df.ffill()
 
-# -----------------------------------
+# -------------------------------------------------
 # PRICE CHART
-# -----------------------------------
+# -------------------------------------------------
 
 fig = go.Figure()
 
@@ -101,15 +102,15 @@ for coin in coins:
     )
 
 fig.update_layout(
-    title="Crypto Price Trends",
+    title="Historical Crypto Prices",
     template="plotly_dark"
 )
 
 st.plotly_chart(fig, use_container_width=True)
 
-# -----------------------------------
+# -------------------------------------------------
 # LIVE MARKET DATA
-# -----------------------------------
+# -------------------------------------------------
 
 st.header("Live Crypto Market Data")
 
@@ -144,16 +145,14 @@ market_df.columns = [
 
 st.dataframe(market_df)
 
-# -----------------------------------
-# CRYPTO HEATMAP
-# -----------------------------------
+# -------------------------------------------------
+# MARKET HEATMAP
+# -------------------------------------------------
 
 st.header("Crypto Market Heatmap")
 
-heatmap_df = market_df.copy()
-
 fig2 = px.treemap(
-    heatmap_df,
+    market_df,
     path=["Coin"],
     values="Market Cap",
     color="24h Change %",
@@ -162,9 +161,9 @@ fig2 = px.treemap(
 
 st.plotly_chart(fig2, use_container_width=True)
 
-# -----------------------------------
+# -------------------------------------------------
 # CRYPTO NEWS
-# -----------------------------------
+# -------------------------------------------------
 
 st.header("Latest Crypto News")
 
@@ -180,9 +179,9 @@ for post in news_data["results"][:10]:
 
 news_df = pd.DataFrame(headlines, columns=["Headline"])
 
-# -----------------------------------
+# -------------------------------------------------
 # SENTIMENT ANALYSIS
-# -----------------------------------
+# -------------------------------------------------
 
 sentiments = [TextBlob(h).sentiment.polarity for h in headlines]
 
@@ -190,9 +189,9 @@ news_df["Sentiment"] = sentiments
 
 st.dataframe(news_df)
 
-# -----------------------------------
+# -------------------------------------------------
 # PORTFOLIO SIMULATOR
-# -----------------------------------
+# -------------------------------------------------
 
 st.header("Portfolio Simulator")
 
@@ -220,3 +219,43 @@ st.metric("Simulated Portfolio Value", f"${total:,.2f}")
 sim_df = pd.DataFrame(list(new_values.items()), columns=["Coin","Value"])
 
 st.bar_chart(sim_df.set_index("Coin"))
+
+# -------------------------------------------------
+# AI PRICE PREDICTION
+# -------------------------------------------------
+
+st.header("AI Price Prediction")
+
+coin_choice = st.selectbox(
+    "Select Coin for Prediction",
+    ["BTC-USD", "ETH-USD", "SOL-USD"]
+)
+
+coin_df = df[[coin_choice]].dropna()
+
+coin_df["day"] = np.arange(len(coin_df))
+
+X = coin_df[["day"]]
+
+y = coin_df[coin_choice]
+
+model = LinearRegression()
+
+model.fit(X, y)
+
+future_days = np.arange(len(coin_df), len(coin_df)+7).reshape(-1,1)
+
+predictions = model.predict(future_days)
+
+pred_df = pd.DataFrame({
+    "Day": range(1,8),
+    "Predicted Price": predictions
+})
+
+st.write("7-Day Forecast")
+
+st.line_chart(pred_df.set_index("Day"))
+
+predicted_price = predictions[-1]
+
+st.metric("Predicted Price in 7 Days", f"${predicted_price:,.2f}")
