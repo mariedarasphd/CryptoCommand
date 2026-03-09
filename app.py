@@ -9,17 +9,18 @@ from PIL import Image
 st.set_page_config(
     page_title="Crypto Command",
     page_icon="logo.png",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
-# --- Custom CSS for black & gold theme ---
+# --- Custom black & gold theme ---
 st.markdown("""
     <style>
     body { background-color: #000000; color: #FFD700; }
-    .stButton>button { background-color: #FFD700; color: black; }
+    .stButton>button { background-color: #FFD700; color: black; font-weight: bold; }
     .stSlider>div>div>div>div { color: #FFD700; }
     .stTextInput>div>div>input { background-color: #111111; color: #FFD700; }
+    .stMarkdown { color: #FFD700; }
+    .stHeader, h1, h2, h3 { color: #FFD700; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -28,7 +29,7 @@ logo = Image.open("logo.png")
 st.image(logo, width=250)
 
 st.title("Crypto Command")
-st.markdown("Your dashboard for cryptocurrency insights, sentiment, and simulations.")
+st.markdown("Dashboard for cryptocurrency insights, sentiment, and simulations.")
 
 # --- Fetch historical price data ---
 coins = ["BTC-USD", "ETH-USD"]
@@ -48,7 +49,7 @@ df = pd.concat(price_frames, axis=1).ffill()
 if isinstance(df.columns, pd.MultiIndex):
     df.columns = [col[-1] for col in df.columns]
 
-# --- Melt for plotting ---
+# --- Melt for Plotly ---
 df_plot = df.reset_index().melt(
     id_vars='Date',
     value_vars=df.columns.tolist(),
@@ -62,14 +63,22 @@ fig_prices = px.line(
     x='Date',
     y='Price',
     color='Coin',
-    labels={'Price': 'Price (USD)', 'Date': 'Date'},
+    labels={'Price':'Price (USD)', 'Date':'Date'},
     title="BTC & ETH Historical Prices"
 )
 st.plotly_chart(fig_prices, use_container_width=True)
 
-# --- Sentiment Analysis Placeholder ---
+# --- Sentiment Analysis ---
 st.header("Sentiment Analysis")
-st.markdown("Sentiment analysis on news & social media will appear here once streaming data services are enabled.")
+user_text = st.text_area("Paste news article or social media text here for sentiment scoring:", "")
+if user_text:
+    blob = TextBlob(user_text)
+    polarity = blob.sentiment.polarity
+    subjectivity = blob.sentiment.subjectivity
+    st.markdown(f"**Polarity:** {polarity:.2f} (negative to positive)")
+    st.markdown(f"**Subjectivity:** {subjectivity:.2f} (objective to subjective)")
+else:
+    st.markdown("Enter text above to perform sentiment analysis.")
 
 # --- Simulation Placeholder ---
 st.header("Simulation")
