@@ -11,20 +11,24 @@ st.set_page_config(
     layout="wide",
 )
 
-# --- LOGO ---
-st.image("logo.png", width=250)
-
-# --- STYLE ---
+# --- CUSTOM STYLE: BLACK/GOLD ---
 st.markdown(
     """
     <style>
     body {background-color: black; color: gold;}
-    .stButton>button {background-color: gold; color: black;}
+    .stApp {background-color: black; color: gold;}
+    .stButton>button {background-color: gold; color: black; font-weight: bold;}
     .stSlider>div>div>div>div {color: gold;}
+    .stTable {color: gold; background-color: black;}
+    .stDataFrame thead th {color: gold; background-color: black;}
+    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {color: gold;}
     </style>
     """,
     unsafe_allow_html=True
 )
+
+# --- LOGO ---
+st.image("logo.png", width=250)
 
 # --- DATA FETCH ---
 coins = ["BTC-USD", "ETH-USD"]
@@ -39,11 +43,20 @@ for coin in coins:
         price_frames.append(df_coin)
 
 df = pd.concat(price_frames, axis=1)
-df = df.ffill()  # forward-fill missing values
+
+# Flatten columns if MultiIndex
+if isinstance(df.columns, pd.MultiIndex):
+    df.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col for col in df.columns]
+
+df = df.ffill()
 
 # --- PRICE PLOT ---
-df_plot = df.reset_index().melt(id_vars='Date', value_vars=df.columns,
-                                var_name='Coin', value_name='Price')
+df_plot = df.reset_index().melt(
+    id_vars='Date',
+    value_vars=df.columns.tolist(),
+    var_name='Coin',
+    value_name='Price'
+)
 
 fig_prices = px.line(
     df_plot,
@@ -51,12 +64,18 @@ fig_prices = px.line(
     y='Price',
     color='Coin',
     title="BTC & ETH Historical Prices",
-    labels={'Price': 'Price (USD)', 'Date': 'Date', 'Coin': 'Coin'}
+    labels={'Price': 'Price (USD)', 'Date': 'Date', 'Coin': 'Coin'},
+    template='plotly_dark'
+)
+fig_prices.update_layout(
+    plot_bgcolor='black',
+    paper_bgcolor='black',
+    font_color='gold'
 )
 st.plotly_chart(fig_prices, use_container_width=True)
 
 # --- SENTIMENT ANALYSIS ---
-st.header("Example Crypto News Sentiment")
+st.header("Crypto News Sentiment")
 example_news = [
     "Bitcoin hits new all-time high",
     "Ethereum network faces congestion issues",
@@ -69,12 +88,12 @@ df_sentiment = pd.DataFrame({
     "Sentiment": sentiments
 })
 
-st.table(df_sentiment)
+st.dataframe(df_sentiment.style.set_properties(**{'color': 'gold', 'background-color': 'black'}))
 
 # --- SIMULATION PLACEHOLDER ---
 st.header("Simulation Placeholder")
 days = st.slider("Forecast Days", min_value=1, max_value=30, value=7)
-st.write(f"Simulation for next {days} days will appear here once streaming data services are enabled.")
+st.markdown(f"<p style='color:gold;'>Simulation for next {days} days will appear here once streaming data services are enabled.</p>", unsafe_allow_html=True)
 
-# --- END ---
+# --- FOOTER ---
 st.markdown("<br><br><p style='color:gold;'>Crypto Command © 2026</p>", unsafe_allow_html=True)
