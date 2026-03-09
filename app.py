@@ -2,44 +2,36 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
+import numpy as np
 import plotly.express as px
-from textblob import TextBlob
-import requests
 
-# -------------------------
-# PAGE CONFIG
-# -------------------------
+# ---------- Page Config ----------
 st.set_page_config(
     page_title="Crypto Command",
-    page_icon="logo.png",
+    page_icon="🪙",
     layout="wide"
 )
 
-# -------------------------
-# CUSTOM CSS
-# -------------------------
+# ---------- Custom CSS for Black/Gold Theme ----------
 st.markdown(
     """
     <style>
-    .css-18e3th9 {background-color: black; color: gold;}
-    .st-bb {background-color: black; color: gold;}
-    .stApp {background-color: black; color: gold;}
-    .stButton>button {background-color: gold; color: black;}
+    .css-18e3th9 {background-color: #000000;}  /* main background */
+    .css-1d391kg {color: #FFD700;}  /* text color gold */
+    .stButton>button {background-color: #FFD700; color: black;}
+    .stPlotlyChart {background-color: #000000;}
     </style>
-    """, unsafe_allow_html=True
+    """,
+    unsafe_allow_html=True
 )
 
-# -------------------------
-# LOGO
-# -------------------------
-st.image("logo.png", width=250)
+# ---------- Logo ----------
+st.image("logo.png", width=200)
 
 st.title("Crypto Command")
-st.markdown("**Predict, simulate, and manage your crypto portfolio with intelligence.**")
+st.write("Predict, simulate, and analyze your crypto portfolio.")
 
-# -------------------------
-# DATA FETCHING
-# -------------------------
+# ---------- Load Historical Prices ----------
 coins = ["BTC-USD", "ETH-USD"]
 price_frames = []
 
@@ -51,70 +43,58 @@ for coin in coins:
         df_coin = data[['Close']].rename(columns={'Close': coin})
         price_frames.append(df_coin)
 
-# Merge all coins on the index (Date)
+# Merge all coins
 df = pd.concat(price_frames, axis=1)
 df = df.ffill()
 
-# -------------------------
-# HISTORICAL PRICE CHART
-# -------------------------
-st.header("Historical Prices")
+# Flatten MultiIndex if needed
+if isinstance(df.columns, pd.MultiIndex):
+    df.columns = [col[-1] if isinstance(col, tuple) else col for col in df.columns]
+
+# Reset index and melt for Plotly
+df_reset = df.reset_index()
+df_long = df_reset.melt(id_vars='Date', var_name='Coin', value_name='Price')
+
+# ---------- Historical Prices Chart ----------
+st.subheader("Historical Prices")
 fig_prices = px.line(
-    df,
-    x=df.index,
-    y=df.columns,
-    labels={'value': 'Price (USD)', 'Date': 'Date', 'variable': 'Coin'},
-    title="BTC & ETH Historical Prices"
+    df_long,
+    x='Date',
+    y='Price',
+    color='Coin',
+    title="BTC & ETH Historical Prices",
+    labels={'Price': 'Price (USD)', 'Date': 'Date', 'Coin': 'Coin'},
+    template="plotly_dark"
 )
 st.plotly_chart(fig_prices, use_container_width=True)
 
-# -------------------------
-# PORTFOLIO SIMULATOR
-# -------------------------
-st.header("Portfolio Simulator")
-st.write("Simulate how market movements affect your portfolio.")
+# ---------- Portfolio Simulation ----------
+st.subheader("Portfolio Simulation")
+st.write("Test hypothetical changes to your crypto holdings:")
 
-col1, col2 = st.columns(2)
-with col1:
-    btc_qty = st.number_input("BTC Holdings", min_value=0.0, value=1.0)
-with col2:
-    eth_qty = st.number_input("ETH Holdings", min_value=0.0, value=5.0)
+# Simple widget for simulation
+holdings = {}
+for coin in coins:
+    holdings[coin] = st.number_input(f"{coin} Holdings:", min_value=0.0, value=1.0, step=0.1)
 
-col3, col4 = st.columns(2)
-with col3:
-    btc_change = st.slider("BTC % Price Change", -50, 50, 0)
-with col4:
-    eth_change = st.slider("ETH % Price Change", -50, 50, 0)
+st.write("Simulate price change (%):")
+price_change = {}
+for coin in coins:
+    price_change[coin] = st.slider(f"{coin} change %", -50, 100, 0)
 
-portfolio = {"BTC-USD": btc_qty, "ETH-USD": eth_qty}
-new_values = {}
+# Compute simulated portfolio
+simulated_value = 0
+for coin in coins:
+    last_price = df[coin].iloc[-1]
+    simulated_price = last_price * (1 + price_change[coin]/100)
+    simulated_value += simulated_price * holdings[coin]
 
-for coin, qty in portfolio.items():
-    pct = btc_change/100 if coin == "BTC-USD" else eth_change/100
-    new_values[coin] = qty * df[coin].iloc[-1] * (1 + pct)
+st.success(f"Simulated Portfolio Value: ${simulated_value:,.2f}")
 
-total_value = sum(new_values.values())
-st.metric("Simulated Portfolio Value", f"${total_value:,.2f}")
+# ---------- Sentiment Analysis Placeholder ----------
+st.subheader("Sentiment Analysis")
+st.write("This section will integrate crypto news and social media sentiment.")
 
-sim_df = pd.DataFrame(list(new_values.items()), columns=["Coin","Value"])
-fig_sim = px.bar(
-    sim_df,
-    x="Coin",
-    y="Value",
-    color="Coin",
-    title="Simulated Portfolio Allocation"
-)
-st.plotly_chart(fig_sim, use_container_width=True)
-
-# -------------------------
-# NEWS & SENTIMENT PLACEHOLDER
-# -------------------------
-st.header("News & Sentiment")
-st.write("This section will show news sentiment and AI predictions in Phase 2.")
-
-# Example: placeholder table
-st.table(pd.DataFrame({
-    "Source": ["CoinDesk", "CryptoNews", "Twitter"],
-    "Headline": ["BTC rallies 5%", "ETH hits new ATH", "Whales accumulating BTC"],
-    "Sentiment": ["Positive", "Positive", "Neutral"]
-}))
+# ---------- Footer ----------
+st.markdown("---")
+st.markdown("© 2026 Crypto Command | Black & Gold Theme")
