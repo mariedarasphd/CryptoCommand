@@ -70,37 +70,48 @@ def load_price_data():
     
     for coin in coins:
         try:
-            # Download data
+            # Download data with progress=False to avoid warnings
             data = yf.download(coin, start="2022-01-01", auto_adjust=True, interval="1d", progress=False)
             
             if data.empty:
+                st.warning(f"No data returned for {coin}")
                 continue
-                
-            # Ensure we only take the 'Close' column
+            
+            # Handle different yfinance return formats
             if isinstance(data, pd.DataFrame):
-                # Handle potential MultiIndex from yfinance
+                # Check if columns are MultiIndex (common in newer yfinance versions)
                 if isinstance(data.columns, pd.MultiIndex):
-                    # Flatten: Take the last level (usually the ticker symbol)
-                    # Sometimes yfinance returns (Close, BTC-USD), sometimes (BTC-USD, Close)
-                    # We try to extract the 'Close' level first
+                    # Extract the 'Close' column from MultiIndex
                     try:
-                        data = data.xs('Close', level=1, axis=1)
-                    except KeyError:
-                        # Fallback: try level 0 if level 1 fails
-                        data = data.xs('Close', level=0, axis=1)
+                        # Try to get Close from level 1 (ticker, Close)
+                        close_col = data[(coin, 'Close')]
+                    except (KeyError, TypeError):
+                        try:
+                            # Try to get Close from level 0
+                            close_col = data[('Close', coin)]
+                        except (KeyError, TypeError):
+                            # Fallback: get first column that contains 'Close'
+                            close_col = data[[c for c in data.columns if 'Close' in str(c)][0]]
                 else:
-                    data = data['Close']
+                    # Simple column access for non-MultiIndex
+                    if 'Close' in data.columns:
+                        close_col = data['Close']
+                    elif coin in data.columns:
+                        close_col = data[coin]
+                    else:
+                        # Fallback: use first column
+                        close_col = data.iloc[:, 0]
                 
-                # Rename to the ticker symbol
-                data = data.rename(coin)
-                price_frames.append(data.to_frame())
+                # Rename to ticker symbol
+                close_col = close_col.rename(coin)
+                price_frames.append(close_col.to_frame())
             else:
-                # Fallback if data is Series
+                # If data is Series, rename and convert to DataFrame
                 data = data.rename(coin).to_frame()
                 price_frames.append(data)
                 
         except Exception as e:
-            st.warning(f"Could not load {coin}: {e}")
+            st.warning(f"Could not load {coin}: {str(e)}")
             
     if not price_frames:
         st.error("No price data loaded. Check internet connection.")
@@ -109,12 +120,11 @@ def load_price_data():
     # Concatenate along columns
     df = pd.concat(price_frames, axis=1)
     
-    # CRITICAL FIX: Ensure columns are strings and flattened
+    # Ensure columns are strings and flattened
     if isinstance(df.columns, pd.MultiIndex):
-        # If still multi-index, flatten by taking the last level
         df.columns = df.columns.get_level_values(-1)
     
-    # Ensure column names are stripped of whitespace
+    # Strip whitespace from column names
     df.columns = df.columns.str.strip()
     
     # Forward fill missing values
