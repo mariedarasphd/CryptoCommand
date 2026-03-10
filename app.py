@@ -296,9 +296,9 @@ with col2:
     st.header("Model Status")
     if clf:
         st.success(f"✅ Model Trained (Accuracy: {model_acc*100:.1f}%)")
-        st.markdown("**Algorithm:** C5.0-Style Decision Tree")
+        st.markdown("**Algorithm:** Proprietary Machine Learning Model")
         st.markdown("**Features:** Sentiment, Volume, Momentum")
-        st.markdown("**Explainability:** Full Decision Path Available")
+        st.markdown("**Explainability:** Transparent Decision Logic")
     else:
         st.error("❌ Model Training Failed")
 
