@@ -19,7 +19,7 @@ warnings.filterwarnings('ignore')
 # -----------------------------
 st.set_page_config(
     page_title="Crypto Command",
-    page_icon="🚀", # Using emoji as fallback if logo.png missing
+    page_icon="🚀",
     layout="wide"
 )
 
@@ -30,7 +30,7 @@ st.markdown("""
 <style>
     .stApp {
         background-color: #000000;
-        color: #FFD700; /* Gold */
+        color: #FFD700;
     }
     h1, h2, h3, h4, h5, h6 {
         color: #FFD700;
@@ -46,7 +46,6 @@ st.markdown("""
     .css-1r6slb0 {
         color: #FFD700;
     }
-    /* Custom button style */
     .stButton>button {
         background-color: #FFD700;
         color: #000;
@@ -94,10 +93,19 @@ def generate_synthetic_features(df):
     df = df.copy()
     np.random.seed(42)
     
+    # Get the number of rows
+    n_rows = len(df)
+    
     # 1. Create synthetic sentiment correlated with price returns
     price_returns = df['BTC-USD'].pct_change().fillna(0)
-    base_sentiment = np.random.normal(0, 0.3, len(df))
+    
+    # FIX: Make base_sentiment a pandas Series with matching index
+    base_sentiment = pd.Series(np.random.normal(0, 0.3, n_rows), index=df.index)
+    
+    # Create correlation as a Series too
     sentiment_correlation = 0.3 * price_returns
+    
+    # Now both are pandas Series with matching indices
     sentiment_series = base_sentiment + sentiment_correlation
     sentiment_series = np.clip(sentiment_series, -1, 1)
     
@@ -184,7 +192,11 @@ def fetch_live_market_data():
 
 # Sidebar
 with st.sidebar:
-    st.image("logo.png", width=150) if os.path.exists("logo.png") else st.markdown("### 🚀 Crypto Command")
+    if os.path.exists("logo.png"):
+        st.image("logo.png", width=150)
+    else:
+        st.markdown("### 🚀 Crypto Command")
+    
     st.markdown("---")
     st.markdown("**Phase 1 Demo Mode**")
     st.info("• Prices: Real (yfinance)\n• Sentiment: Synthetic (Demo)\n• Model: C5.0-Style Decision Tree")
@@ -306,7 +318,6 @@ with col_sim1:
     multipliers = scenario_map[scenario]
     
     # Apply sentiment adjustment to the simulation
-    # If user sets sentiment slider, use that, else use latest
     sim_sentiment = s_sentiment if 's_sentiment' in locals() else 0.0
     sentiment_adj = sim_sentiment * 0.02 * multipliers['sentiment_boost']
     
