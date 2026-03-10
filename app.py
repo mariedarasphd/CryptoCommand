@@ -70,10 +70,35 @@ def load_price_data():
     
     for coin in coins:
         try:
+            # Download data
             data = yf.download(coin, start="2022-01-01", auto_adjust=True, interval="1d", progress=False)
-            if not data.empty:
-                df_coin = data[['Close']].rename(columns={'Close': coin})
-                price_frames.append(df_coin)
+            
+            if data.empty:
+                continue
+                
+            # Ensure we only take the 'Close' column
+            if isinstance(data, pd.DataFrame):
+                # Handle potential MultiIndex from yfinance
+                if isinstance(data.columns, pd.MultiIndex):
+                    # Flatten: Take the last level (usually the ticker symbol)
+                    # Sometimes yfinance returns (Close, BTC-USD), sometimes (BTC-USD, Close)
+                    # We try to extract the 'Close' level first
+                    try:
+                        data = data.xs('Close', level=1, axis=1)
+                    except KeyError:
+                        # Fallback: try level 0 if level 1 fails
+                        data = data.xs('Close', level=0, axis=1)
+                else:
+                    data = data['Close']
+                
+                # Rename to the ticker symbol
+                data = data.rename(coin)
+                price_frames.append(data.to_frame())
+            else:
+                # Fallback if data is Series
+                data = data.rename(coin).to_frame()
+                price_frames.append(data)
+                
         except Exception as e:
             st.warning(f"Could not load {coin}: {e}")
             
@@ -81,7 +106,20 @@ def load_price_data():
         st.error("No price data loaded. Check internet connection.")
         return pd.DataFrame()
         
-    df = pd.concat(price_frames, axis=1).ffill()
+    # Concatenate along columns
+    df = pd.concat(price_frames, axis=1)
+    
+    # CRITICAL FIX: Ensure columns are strings and flattened
+    if isinstance(df.columns, pd.MultiIndex):
+        # If still multi-index, flatten by taking the last level
+        df.columns = df.columns.get_level_values(-1)
+    
+    # Ensure column names are stripped of whitespace
+    df.columns = df.columns.str.strip()
+    
+    # Forward fill missing values
+    df = df.ffill()
+    
     return df
 
 @st.cache_data
@@ -93,7 +131,11 @@ def generate_synthetic_features(df):
     df = df.copy()
     np.random.seed(42)
     
-    # Get the number of rows
+    # Debug: Check if columns exist
+    if 'BTC-USD' not in df.columns:
+        st.error(f"Column 'BTC-USD' not found. Available columns: {list(df.columns)}")
+        return df, None
+        
     n_rows = len(df)
     
     # 1. Create synthetic sentiment correlated with price returns
