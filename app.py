@@ -224,6 +224,7 @@ def explain_prediction(clf, features_dict, feature_names):
     except Exception as e:
         return f"Error generating explanation: {str(e)}"
 
+@st.cache_data(ttl=300)  # CACHE FIX: Cache for 5 minutes to avoid rate limits
 def fetch_live_market_data():
     """Fetches live market data from CoinGecko."""
     url = "https://api.coingecko.com/api/v3/coins/markets"
@@ -251,7 +252,7 @@ with st.sidebar:
     
     st.markdown("---")
     st.markdown("**Phase 1 Demo Mode**")
-    st.info("• Prices: Real (yfinance)\n• Sentiment: Synthetic (Demo)\n• Model: C5.0-Style Decision Tree")
+    st.info("• Prices: Real (yfinance)\n• Sentiment: Synthetic (Demo)\n• Model: Proprietary ML")
     
     st.markdown("---")
     st.markdown("### Controls")
@@ -289,6 +290,7 @@ with col1:
         
         display_cols = ['name', 'symbol', 'Price', 'Market Cap', '24h Change']
         st.dataframe(live_df[display_cols].head(10), use_container_width=True, hide_index=True)
+        st.caption("ℹ️ Data cached for 5 minutes to avoid API rate limits")
     else:
         st.warning("Live market data unavailable (API limit or network issue).")
 
