@@ -1,9 +1,4 @@
-# FIXED VERSION: CryptoCommand Streamlit App
-# Key improvements:
-# - Robust data fetching with retries
-# - BTC dependency enforcement
-# - Defensive programming across pipeline
-# - Cleaner, production-safe logic
+# FIXED VERSION WITH FULL UI RESTORED
 
 import streamlit as st
 import yfinance as yf
@@ -24,11 +19,38 @@ warnings.filterwarnings('ignore')
 st.set_page_config(page_title="Crypto Command", page_icon="🚀", layout="wide")
 
 # -----------------------------
+# 🎨 CUSTOM THEME (BLACK + GOLD RESTORED)
+# -----------------------------
+st.markdown("""
+<style>
+    .stApp {
+        background-color: #000000;
+        color: #FFD700;
+    }
+    h1, h2, h3, h4 {
+        color: #FFD700;
+    }
+    [data-testid="stSidebar"] {
+        background-color: #111111;
+    }
+    .stButton>button {
+        background-color: #FFD700;
+        color: #000;
+        font-weight: bold;
+        border: none;
+    }
+    .stButton>button:hover {
+        background-color: #E6C200;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# -----------------------------
 # DATA FETCH (ROBUST)
 # -----------------------------
 
 def fetch_coin_data(coin, retries=3):
-    for attempt in range(retries):
+    for _ in range(retries):
         try:
             data = yf.download(
                 coin,
@@ -55,7 +77,6 @@ def load_price_data():
 
         if data.empty:
             if coin == "BTC-USD":
-                # Fallback for BTC (critical)
                 dates = pd.date_range(start="2022-01-01", periods=500)
                 prices = np.cumsum(np.random.normal(0, 1, 500)) + 20000
                 data = pd.DataFrame({"Close": prices}, index=dates)
@@ -65,21 +86,16 @@ def load_price_data():
         if isinstance(data.columns, pd.MultiIndex):
             data.columns = data.columns.get_level_values(-1)
 
-        if 'Close' in data.columns:
-            series = data['Close']
-        else:
-            series = data.iloc[:, 0]
-
+        series = data['Close'] if 'Close' in data.columns else data.iloc[:, 0]
         frames.append(series.rename(coin).to_frame())
 
     if not frames:
         return pd.DataFrame()
 
-    df = pd.concat(frames, axis=1).ffill()
-    return df
+    return pd.concat(frames, axis=1).ffill()
 
 # -----------------------------
-# FEATURE ENGINEERING
+# FEATURES
 # -----------------------------
 
 @st.cache_data
@@ -104,8 +120,7 @@ def generate_features(df):
     df['Return'] = returns
     df['Target'] = pd.cut(df['Return'], bins=[-1, -0.01, 0.01, 1], labels=['Down', 'Stable', 'Up'])
 
-    df = df.dropna()
-    return df, sentiment
+    return df.dropna(), sentiment
 
 # -----------------------------
 # MODEL
@@ -123,52 +138,51 @@ def train_model(df):
     clf = DecisionTreeClassifier(max_depth=5, min_samples_leaf=10, random_state=42)
     clf.fit(X_train, y_train)
 
-    acc = accuracy_score(y_test, clf.predict(X_test))
-    return clf, acc
+    return clf, accuracy_score(y_test, clf.predict(X_test))
 
 # -----------------------------
-# LIVE DATA
+# SIDEBAR (RESTORED)
 # -----------------------------
 
-@st.cache_data(ttl=300)
-def fetch_live():
-    try:
-        url = "https://api.coingecko.com/api/v3/coins/markets"
-        params = {"vs_currency": "usd", "order": "market_cap_desc", "per_page": 10}
-        r = requests.get(url, params=params, timeout=5)
-        df = pd.DataFrame(r.json())
-        return df
-    except Exception:
-        return pd.DataFrame()
+with st.sidebar:
+    if os.path.exists("logo.png"):
+        st.image("logo.png", width=150)
+    else:
+        st.markdown("### 🚀 Crypto Command")
+
+    st.markdown("---")
+    st.markdown("**Phase 1 Demo Mode**")
+    st.info("• Prices: Real (yfinance)\n• Sentiment: Synthetic\n• Model: ML")
 
 # -----------------------------
 # APP
 # -----------------------------
 
 st.title("Crypto Command")
+st.markdown("### AI-Powered Predictive Analytics")
 
 with st.spinner("Loading data..."):
     df_raw = load_price_data()
 
 if df_raw.empty or 'BTC-USD' not in df_raw.columns:
-    st.error("BTC data unavailable. Refresh or wait (API limit).")
+    st.error("BTC data unavailable. Try refresh.")
     st.stop()
 
 
 df_clean, sentiment = generate_features(df_raw)
 clf, acc = train_model(df_clean)
 
-# -----------------------------
-# UI
-# -----------------------------
-
 col1, col2 = st.columns(2)
 
 with col1:
     st.subheader("Live Market")
-    live = fetch_live()
-    if not live.empty:
-        st.dataframe(live[['name', 'symbol', 'current_price']])
+    try:
+        url = "https://api.coingecko.com/api/v3/coins/markets"
+        params = {"vs_currency": "usd", "order": "market_cap_desc", "per_page": 10}
+        df_live = pd.DataFrame(requests.get(url, params=params).json())
+        st.dataframe(df_live[['name', 'symbol', 'current_price']])
+    except:
+        st.warning("Live data unavailable")
 
 with col2:
     if clf:
@@ -177,7 +191,7 @@ with col2:
         st.error("Model failed")
 
 # Prediction
-st.header("Prediction")
+st.header("AI Prediction Engine")
 
 s1 = st.slider("Sentiment", -1.0, 1.0, 0.0)
 s2 = st.slider("Volume", 0.0, 5.0, 1.0)
@@ -186,16 +200,20 @@ s4 = st.slider("Momentum 20D", -0.1, 0.1, 0.0)
 
 if clf:
     pred = clf.predict([[s1, s2, s3, s4]])[0]
-    st.write(f"Forecast: {pred}")
+    color = "green" if pred == "Up" else "red" if pred == "Down" else "gray"
+    st.markdown(f"### 🎯 Forecast: :{color}[{pred}]")
 
 # Chart
+st.header("Price & Sentiment")
+
 fig = go.Figure()
-fig.add_trace(go.Scatter(x=df_raw.index, y=df_raw['BTC-USD'], name='BTC'))
+fig.add_trace(go.Scatter(x=df_raw.index, y=df_raw['BTC-USD'], name='BTC', line=dict(width=2)))
 
 if sentiment is not None:
-    fig.add_trace(go.Scatter(x=df_raw.index, y=sentiment, name='Sentiment', yaxis='y2'))
+    fig.add_trace(go.Scatter(x=df_raw.index, y=sentiment, name='Sentiment', yaxis='y2', line=dict(dash='dot', color='orange')))
 
-fig.update_layout(yaxis2=dict(overlaying='y', side='right'))
-st.plotly_chart(fig)
+fig.update_layout(template="plotly_dark", yaxis2=dict(overlaying='y', side='right'))
+st.plotly_chart(fig, use_container_width=True)
 
-st.caption("Demo app - not financial advice")
+st.markdown("---")
+st.caption("⚠️ Demo only. Not financial advice.")
