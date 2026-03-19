@@ -38,9 +38,22 @@ st.markdown("""
     }
     .stMetric {
         background-color: #111;
-        padding: 10px;
+        padding: 12px;
         border-radius: 10px;
-        border: 1px solid #333;
+        border: 1px solid #FFD700;
+    }
+    .stMetric label {
+        color: #FFD700 !important;
+        font-size: 12px;
+        letter-spacing: 1px;
+    }
+    .stMetric div[data-testid="stMetricValue"] {
+        color: #FFFFFF !important;
+        font-size: 24px;
+        font-weight: bold;
+    }
+    .stMetric div[data-testid="stMetricDelta"] {
+        color: #FFD700 !important;
     }
     .stButton>button {
         background-color: #FFD700;
@@ -123,6 +136,36 @@ def train_model(df):
     clf.fit(X_train, y_train)
 
     return clf, accuracy_score(y_test, clf.predict(X_test))
+
+# -----------------------------
+# SIDEBAR (LOGO RESTORED)
+# -----------------------------
+
+with st.sidebar:
+    if os.path.exists("logo.png"):
+        st.image("logo.png", width=180)
+    else:
+        st.markdown("## 🚀 Crypto Command")
+
+    st.markdown("---")
+    st.markdown("**Phase 1 Demo Mode**")
+    st.info("• Prices: Real (yfinance)
+• Sentiment: Synthetic
+• Model: ML")
+
+# -----------------------------
+# SIDEBAR (LOGO RESTORED)
+# -----------------------------
+
+with st.sidebar:
+    if os.path.exists("logo.png"):
+        st.image("logo.png", width=180)
+    else:
+        st.markdown("## 🚀 Crypto Command")
+
+    st.markdown("---")
+    st.markdown("**Phase 1 Demo Mode**")
+    st.info("• Prices: Real (yfinance)\n• Sentiment: Synthetic\n• Model: ML")
 
 # -----------------------------
 # LOAD
